@@ -123,4 +123,69 @@ sudo lsblk  # Para ver dispositivos disponibles
 - La instalación de OpenCV puede tardar varios minutos
 - No desconectes la alimentación durante los procesos
 - Usa una fuente de alimentación dedicada para mejor rendimiento
-- Haz backups regulares de tus configuraciones importantes 
+- Haz backups regulares de tus configuraciones importantes
+
+# Jetson Utils
+
+Herramientas para gestionar Jetson Nano.
+
+## Requisitos
+
+- NVIDIA SDK Manager instalado (https://developer.nvidia.com/sdk-manager)
+- Jetson Nano
+- Tarjeta SD
+- Cable USB para modo Recovery
+
+## Scripts Disponibles
+
+### 1. Setup TensorRT
+```bash
+sudo ./1-setup-tensorrt.sh
+```
+Configura TensorRT en el Jetson Nano.
+
+### 2. Backup Jetson
+```bash
+sudo ./2-backup-jetson.sh
+```
+Crea un backup del sistema usando NVIDIA SDK Manager.
+
+### 3. Flash Jetson
+```bash
+sudo ./3-flash-jetson.sh <archivo_backup.img.gz>
+```
+Flashea un backup en una nueva SD usando NVIDIA SDK Manager.
+
+## Uso de NVIDIA SDK Manager
+
+### Backup
+1. Ejecuta `sudo ./2-backup-jetson.sh`
+2. Abre NVIDIA SDK Manager
+3. Selecciona tu Jetson Nano
+4. En la sección 'Flash OS Image':
+   - Selecciona 'Backup'
+   - Guarda el backup con el nombre sugerido
+5. Sigue las instrucciones en pantalla
+
+### Flash
+1. Ejecuta `sudo ./3-flash-jetson.sh <archivo_backup.img.gz>`
+2. Abre NVIDIA SDK Manager
+3. Selecciona tu Jetson Nano
+4. En la sección 'Flash OS Image':
+   - Selecciona 'Restore'
+   - Selecciona el archivo de backup
+5. Sigue las instrucciones en pantalla
+
+### Modo Recovery
+Para entrar en modo Recovery:
+1. Desconecta la alimentación
+2. Mantén presionado el botón RECOVERY
+3. Conecta la alimentación mientras mantienes RECOVERY
+4. Suelta RECOVERY después de 2 segundos
+
+## Notas
+
+- Los archivos de backup (.img.gz) están en .gitignore
+- Usa siempre NVIDIA SDK Manager para operaciones de backup y flash
+- Asegúrate de tener suficiente espacio en disco para los backups
+- Los backups se guardan por defecto en ~/nvidia/nvidia_sdk/backup/ 
