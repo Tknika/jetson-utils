@@ -10,26 +10,38 @@ echo "========================================================"
 echo "Setting up Quality Control TensorRT project for Jetson Nano"
 echo "========================================================"
 
-# Step 1: Install Edge Impulse tooling
-echo "[1/6] Installing Edge Impulse tooling..."
+# Step 1: Install required libraries
+echo "[1/7] Installing required libraries..."
+sudo apt update
+sudo apt install -y libatlas-base-dev libportaudio2 libportaudiocpp0 portaudio19-dev python3-pip
+
+# Upgrade pip and install required Python packages
+echo "Upgrading pip and installing Python packages..."
+pip3 install --upgrade pip setuptools wheel
+pip3 install Cython
+pip3 install pyaudio edge_impulse_linux
+pip3 install edge_impulse_linux -i https://pypi.python.org/simple
+
+# Step 2: Install Edge Impulse tooling
+echo "[2/7] Installing Edge Impulse tooling..."
 wget -q -O - https://cdn.edgeimpulse.com/firmware/linux/jetson.sh | bash
 
-# Step 2: Install Clang compiler
-echo "[2/6] Installing Clang compiler..."
+# Step 3: Install Clang compiler
+echo "[3/7] Installing Clang compiler..."
 sudo apt update
 sudo apt install -y clang
 
-# Step 3: Clone the Edge Impulse inferencing repository
-echo "[3/6] Cloning Edge Impulse inferencing repository..."
+# Step 4: Clone the Edge Impulse inferencing repository
+echo "[4/7] Cloning Edge Impulse inferencing repository..."
 git clone https://github.com/edgeimpulse/example-standalone-inferencing-linux
 cd example-standalone-inferencing-linux && git submodule update --init --recursive
 
-# Step 4: Install OpenCV
-echo "[4/6] Installing OpenCV (this may take some time)..."
+# Step 5: Install OpenCV
+echo "[5/7] Installing OpenCV (this may take some time)..."
 sh build-opencv-linux.sh
 
-# Step 5: Create symbolic links for CUDA libraries
-echo "[5/6] Setting up CUDA library paths..."
+# Step 6: Create symbolic links for CUDA libraries
+echo "[6/7] Setting up CUDA library paths..."
 if [ -d "/usr/local/cuda-10.2" ]; then
   echo "Found CUDA 10.2, creating symbolic links..."
   sudo ln -sf /usr/local/cuda-10.2/lib64/libcudart.so /usr/lib/libcudart.so
@@ -42,8 +54,8 @@ else
   echo "You may need to manually create symbolic links to your CUDA libraries."
 fi
 
-# Step 6: Modify the FOMO model type in eim.cpp
-echo "[6/6] Setting up FOMO model type..."
+# Step 7: Modify the FOMO model type in eim.cpp
+echo "[7/7] Setting up FOMO model type..."
 if [ -f "source/eim.cpp" ]; then
   # Check if line already exists
   if grep -q "const char \*model_type = \"constrained_object_detection\";" source/eim.cpp; then
