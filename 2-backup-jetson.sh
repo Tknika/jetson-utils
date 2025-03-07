@@ -44,6 +44,18 @@ echo "=== Iniciando backup de la tarjeta SD ==="
 echo "Dispositivo origen: /dev/$DEVICE"
 echo "Archivo destino: $BACKUP_FILE"
 echo ""
+
+# Get partition info
+echo "Analizando particiones..."
+LAST_SECTOR=$(fdisk -l /dev/$DEVICE | grep "^/dev/$DEVICE" | sort -n -k3 | tail -n1 | awk '{print $3}')
+SECTOR_SIZE=$(fdisk -l /dev/$DEVICE | grep "^Sector size:" | awk '{print $4}')
+TOTAL_SIZE=$((LAST_SECTOR * SECTOR_SIZE))
+
+echo "Información de particiones:"
+fdisk -l /dev/$DEVICE | grep "^/dev/$DEVICE"
+echo ""
+echo "Tamaño total a copiar: $(numfmt --to=iec $TOTAL_SIZE)"
+echo ""
 echo "ADVERTENCIA: Este proceso puede tardar varios minutos"
 echo "            No extraigas la tarjeta SD durante el proceso"
 echo ""
@@ -55,11 +67,7 @@ fi
 
 # Create backup using dd with progress
 echo "Creando backup..."
-dd if=/dev/$DEVICE of=$BACKUP_FILE bs=1M status=progress
-
-# Compress the image
-echo "Comprimiendo backup..."
-gzip -f $BACKUP_FILE
+dd if=/dev/$DEVICE bs=1M count=$((TOTAL_SIZE/1024/1024)) status=progress | gzip > ${BACKUP_FILE}.gz
 
 echo "=== Backup completado ==="
 echo "Archivo: ${BACKUP_FILE}.gz"
