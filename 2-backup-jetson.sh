@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Backup script for Jetson Nano using NVIDIA SDK Manager
+# Backup script for Jetson Nano using dd command
 # Author: mikel.diez@somorrostro.com
 
 set -e
@@ -12,64 +12,58 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Function to check SDK Manager installation
-check_sdk_manager() {
-    echo "Verificando instalación de NVIDIA SDK Manager..."
+# Function to find SD card device
+find_sd_card() {
+    echo "Buscando tarjeta SD..."
     
-    # Check if sdkmanager command exists
-    if ! command -v sdkmanager &> /dev/null; then
-        echo "NVIDIA SDK Manager no está instalado"
-        echo ""
-        echo "Para instalar NVIDIA SDK Manager:"
-        echo "1. Descarga el instalador desde: https://developer.nvidia.com/sdk-manager"
-        echo "2. Abre una terminal y ejecuta:"
-        echo "   sudo apt update"
-        echo "   sudo apt install -y libgconf-2-4 gdb libstdc++6 libglu1-mesa fonts-liberation libasound2 libcurl3 lsb-release xdg-utils"
-        echo "3. Navega a la carpeta de descarga y ejecuta:"
-        echo "   sudo dpkg -i sdkmanager_*.deb"
-        echo "4. Si hay errores de dependencias, ejecuta:"
-        echo "   sudo apt --fix-broken install"
-        echo ""
-        echo "Después de instalar SDK Manager, ejecuta este script de nuevo"
-        exit 1
-    fi
-    
-    # Check if SDK Manager can be launched
-    if ! sdkmanager --version &> /dev/null; then
-        echo "Error al ejecutar SDK Manager"
-        echo "Por favor, verifica la instalación o reinstala SDK Manager"
-        exit 1
-    fi
-    
-    echo "NVIDIA SDK Manager está instalado correctamente"
+    # List all block devices that could be SD cards
+    echo "Dispositivos disponibles:"
+    lsblk -d -o NAME,SIZE,MODEL,TRAN | grep "mmc\|sd"
     echo ""
+    
+    # Ask user to specify device
+    read -p "Introduce el nombre del dispositivo (ejemplo: mmcblk0 o sdb): " DEVICE
+    
+    if [ ! -b "/dev/$DEVICE" ]; then
+        echo "Error: /dev/$DEVICE no es un dispositivo válido"
+        exit 1
+    fi
+    
+    echo "Usando dispositivo: /dev/$DEVICE"
+    return 0
 }
 
-# Verify SDK Manager installation
-check_sdk_manager
-
-# Get current date for backup filename
+# Get backup filename
 BACKUP_DATE=$(date +%Y%m%d)
-BACKUP_FILE="jetson_backup_${BACKUP_DATE}.img.gz"
+BACKUP_FILE="jetson_backup_${BACKUP_DATE}.img"
 
-echo "=== Iniciando backup con NVIDIA SDK Manager ==="
-echo "1. Abre NVIDIA SDK Manager"
-echo "2. Selecciona tu Jetson Nano"
-echo "3. En la sección 'Flash OS Image':"
-echo "   - Selecciona 'Backup'"
-echo "   - Guarda el backup como: $BACKUP_FILE"
-echo "4. Sigue las instrucciones en pantalla"
+# Find SD card
+find_sd_card
+
+echo "=== Iniciando backup de la tarjeta SD ==="
+echo "Dispositivo origen: /dev/$DEVICE"
+echo "Archivo destino: $BACKUP_FILE"
 echo ""
-echo "Nota: El backup se guardará en la ubicación que elijas en SDK Manager"
-echo "      Por defecto, suele ser en ~/nvidia/nvidia_sdk/backup/"
+echo "ADVERTENCIA: Este proceso puede tardar varios minutos"
+echo "            No extraigas la tarjeta SD durante el proceso"
 echo ""
-echo "¿Has completado el backup con SDK Manager? (s/N): "
-read CONFIRM
+read -p "¿Continuar con el backup? (s/N): " CONFIRM
 if [ "$CONFIRM" != "s" ] && [ "$CONFIRM" != "S" ]; then
     echo "Operación cancelada"
     exit 1
 fi
 
+# Create backup using dd with progress
+echo "Creando backup..."
+dd if=/dev/$DEVICE of=$BACKUP_FILE bs=1M status=progress
+
+# Compress the image
+echo "Comprimiendo backup..."
+gzip -f $BACKUP_FILE
+
 echo "=== Backup completado ==="
-echo "El archivo de backup se encuentra en la ubicación que especificaste en SDK Manager"
+echo "Archivo: ${BACKUP_FILE}.gz"
+echo "Tamaño: $(du -h ${BACKUP_FILE}.gz | cut -f1)"
+echo ""
+echo "Puedes usar este archivo con el script 3-flash-jetson.sh para restaurar la imagen"
 echo "Recuerda que los archivos .img.gz están en .gitignore para evitar subirlos al repositorio" 

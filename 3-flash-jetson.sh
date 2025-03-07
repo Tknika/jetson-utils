@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# Flash script for Jetson Nano using NVIDIA SDK Manager
-# This script helps you flash a backup using NVIDIA SDK Manager
+# Flash script for Jetson Nano using dd command
 # Author: mikel.diez@somorrostro.com
 
 set -e
@@ -12,42 +11,6 @@ if [ "$EUID" -ne 0 ]; then
     echo "Ejecuta: sudo $0 <archivo_backup.img.gz>"
     exit 1
 fi
-
-# Function to check SDK Manager installation
-check_sdk_manager() {
-    echo "Verificando instalación de NVIDIA SDK Manager..."
-    
-    # Check if sdkmanager command exists
-    if ! command -v sdkmanager &> /dev/null; then
-        echo "NVIDIA SDK Manager no está instalado"
-        echo ""
-        echo "Para instalar NVIDIA SDK Manager:"
-        echo "1. Descarga el instalador desde: https://developer.nvidia.com/sdk-manager"
-        echo "2. Abre una terminal y ejecuta:"
-        echo "   sudo apt update"
-        echo "   sudo apt install -y libgconf-2-4 gdb libstdc++6 libglu1-mesa fonts-liberation libasound2 libcurl3 lsb-release xdg-utils"
-        echo "3. Navega a la carpeta de descarga y ejecuta:"
-        echo "   sudo dpkg -i sdkmanager_*.deb"
-        echo "4. Si hay errores de dependencias, ejecuta:"
-        echo "   sudo apt --fix-broken install"
-        echo ""
-        echo "Después de instalar SDK Manager, ejecuta este script de nuevo"
-        exit 1
-    fi
-    
-    # Check if SDK Manager can be launched
-    if ! sdkmanager --version &> /dev/null; then
-        echo "Error al ejecutar SDK Manager"
-        echo "Por favor, verifica la instalación o reinstala SDK Manager"
-        exit 1
-    fi
-    
-    echo "NVIDIA SDK Manager está instalado correctamente"
-    echo ""
-}
-
-# Verify SDK Manager installation
-check_sdk_manager
 
 # Check if backup file is provided
 if [ "$#" -ne 1 ]; then
@@ -70,31 +33,55 @@ if ! file "$BACKUP_FILE" | grep -q "gzip"; then
     exit 1
 fi
 
+# Function to find SD card device
+find_sd_card() {
+    echo "Buscando tarjeta SD..."
+    
+    # List all block devices that could be SD cards
+    echo "Dispositivos disponibles:"
+    lsblk -d -o NAME,SIZE,MODEL,TRAN | grep "mmc\|sd"
+    echo ""
+    
+    # Ask user to specify device
+    read -p "Introduce el nombre del dispositivo (ejemplo: mmcblk0 o sdb): " DEVICE
+    
+    if [ ! -b "/dev/$DEVICE" ]; then
+        echo "Error: /dev/$DEVICE no es un dispositivo válido"
+        exit 1
+    fi
+    
+    echo "Usando dispositivo: /dev/$DEVICE"
+    return 0
+}
+
 # Get file size
 FILE_SIZE=$(stat -c%s "$BACKUP_FILE")
 echo "Tamaño del archivo de backup: $(numfmt --to=iec $FILE_SIZE)"
 
-echo "=== Iniciando proceso de flasheo con NVIDIA SDK Manager ==="
-echo "1. Abre NVIDIA SDK Manager"
-echo "2. Selecciona tu Jetson Nano"
-echo "3. En la sección 'Flash OS Image':"
-echo "   - Selecciona 'Restore'"
-echo "   - Selecciona el archivo: $BACKUP_FILE"
-echo "4. Sigue las instrucciones en pantalla"
+# Find SD card
+find_sd_card
+
+echo "=== Iniciando proceso de flasheo ==="
+echo "Archivo origen: $BACKUP_FILE"
+echo "Dispositivo destino: /dev/$DEVICE"
 echo ""
-echo "Nota: Asegúrate de que el Jetson Nano está en modo Recovery"
-echo "      Para entrar en modo Recovery:"
-echo "      1. Desconecta la alimentación"
-echo "      2. Mantén presionado el botón RECOVERY"
-echo "      3. Conecta la alimentación mientras mantienes RECOVERY"
-echo "      4. Suelta RECOVERY después de 2 segundos"
+echo "ADVERTENCIA: ¡Este proceso borrará TODOS los datos en /dev/$DEVICE!"
+echo "            Asegúrate de que es el dispositivo correcto"
+echo "            No extraigas la tarjeta SD durante el proceso"
 echo ""
-echo "¿Has completado el flasheo con SDK Manager? (s/N): "
-read CONFIRM
+read -p "¿Continuar con el flasheo? (s/N): " CONFIRM
 if [ "$CONFIRM" != "s" ] && [ "$CONFIRM" != "S" ]; then
     echo "Operación cancelada"
     exit 1
 fi
+
+# Flash the image using dd with progress
+echo "Descomprimiendo y flasheando imagen..."
+gunzip -c "$BACKUP_FILE" | dd of=/dev/$DEVICE bs=1M status=progress
+
+# Sync to ensure all data is written
+echo "Sincronizando..."
+sync
 
 echo "=== ¡Proceso completado! ==="
 echo "La SD está lista para usar en tu Jetson Nano"
